@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title> debelan </title> 
+</head>
+<body style="text-align:center">
+
+  <h2>Testing if your browser supports WebSockets</h2>
+  <div id="supported"></div>
+  <script type="text/javascript">
+    var message = "WebSockets are not supported";
+    if (window.WebSocket) {
+       message = "WebSockets are supported on your browser";
+    }
+    document.getElementById('supported').innerHTML = message;
+  </script>
+
+</body>
+</html>
