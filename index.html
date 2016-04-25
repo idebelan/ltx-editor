@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 <!DOCTYPE html>
 <html> 
 <head>
@@ -485,3 +486,492 @@
 </body> 
 </html> 
 <!-- 22-04-2016 -->
+=======
+<!DOCTYPE html>
+<html> 
+<head>
+     <meta charset="utf-8">
+     <title>idebelan_LaTeX_frontend</title> 
+     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+     
+     <link rel="stylesheet" href="http://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/css/bootstrap.min.css">
+     <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.12.0/jquery.min.js"></script>
+     <script src="http://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/js/bootstrap.min.js"></script>
+     <!--
+     <link rel="stylesheet" href="../bootstrap/3.3.6/css/bootstrap.min.css">
+     <script src="../jquery/1.11.3/jquery.min.js"></script>
+     <script src="../bootstrap/3.3.6/js/bootstrap.min.js"></script>
+     -->
+     
+     <!--  NODE.js-version  <script src="/socket.io/socket.io.js"></script>   -->
+     <script src="http://localhost:3000/socket.io/socket.io.js"> </script>
+     <script>
+       var socket = io.connect('http://localhost:3000');   //  = io(); NODE.js-version
+       
+       // --- LaTeX syntax representation ---
+       var LXchars = [ '\alpha', '\beta', '\gamma', '\pi', '\phi', '\varphi' ,
+                     // 6             7             8             9    
+                       '\mathbb{A}', '\mathbb{Z}', '\mathbb{I}', '\mathbb{C}',
+                     // 10            11            12            13          
+                       '\mathbb{N}', '\mathbb{H}', '\mathbb{Q}', '\mathbb{R}', 
+                     // 14      15      16          17     18      19 
+                       '\sum', '\prod', '\coprod', '\cup', '\cap', '\sqrt', 
+                     // 20      21      22       23        24        25 
+                       '\int', '\oint', '\iint', '\iiint', '\land', '\lor'  ] ;
+       
+       // --- WEB interface commands set ---
+       var cmdListCS  = [ 'client_open', 'send_char', 'send_line', 'save_doc', 'convert_doc_pdf', 'getLXdocs',
+                          'requre_edit', 'edit_allowed', 'edit_denied', 'news', 'get_file'  ] ; 
+       var cmdListSS  = [ 'propg_char', 'propg_line', 'avail_docs', 'alert_doc_edit', 'lastLXedited', 'no_news',
+                          'deliver_doc', 'doc_saved', 'doc_converted'  ] ; 
+       // --- LaTeX document syntax ---
+       var sLTXdocBegin = "\documentclass{scrartcl} + \title{New-LTX-dokument} + \begin{document} " ;
+       var sLTXdocEnd   = "\end{document}" ;   
+                      
+       // --- Common Variables ---
+       // --- OBSOLETE !!! constants ---
+       var strClientID = "WEBCLIENT:" ;     // const
+       var strCommand  = "CMD:" ;           // const
+       var strData     = "DATA:" ;          // const
+       // --- NEW !!! constants ---
+       var sLTXnoData     = "no-data" ;     // const 
+       var sUserSEPfile   = '@' ;           // const
+       var sFileNamesSEP  = '#' ;           // const
+       var sClientDataSEP = '+' ;           // const
+       var sLASTedited    = "someUser@doc" ;
+       var sCURRENTedited = "currentUser@doc" ;
+      
+       var iRandomClientID   = Math.floor ((Math.random () * 10000) + 1) ;
+       var sCurrentLXContent = "" ;
+       var s1stPART ="" ;  var bFound1 = false ; var n1 = 0 ;
+       var s2ndPART ="" ;  var bFound2 = false ; var n2 = 0 ;
+       var s3rdPART ="" ;  var bFound3 = false ; var n3 = 0 ;
+       var sERRmsg  ="" ;  var bError  = false ; var bErrCode = 0 ; 
+       var bDEBUG   =true; var iButton = -1 ;  
+       var bSENDch  =true;
+       // --- SOCKET communication below [START]---
+
+       // --- should be using the array with commands here ---
+     //socket.on('no_news',        function(SocketMsg) {  console.log('no_news' + '  >>>command - oieeee' );  });
+       socket.on('propg_char',     function(SocketMsg) { addCharIntoEditor     (SocketMsg);  }); // 0
+       socket.on('propg_line',     function(SocketMsg) { addLineIntoEditor     (SocketMsg);  }); // 1
+       socket.on('avail_docs',     function(SocketMsg) { displayAvalableLXdocs (SocketMsg);  }); // 2
+       socket.on('alert_doc_edit', function(SocketMsg) { permitORdenyLXdocEdit (SocketMsg);  }); // 3
+       socket.on('lastLXedited',   function(SocketMsg) { evaluateIncommingData (SocketMsg);  }); // 4
+       socket.on('no_news',        function(SocketMsg) { evaluateIncommingData (SocketMsg);  }); // 5
+       socket.on('deliver_doc',    function(SocketMsg) { evaluateIncommingData (SocketMsg);  }); // 6
+       socket.on('doc_saved',      function(SocketMsg) { evaluateIncommingData (SocketMsg);  }); // 7
+       socket.on('doc_converted',  function(SocketMsg) { evaluateIncommingData (SocketMsg);  }); // 8
+       
+       // --- SOCKET INCOMMING COMMAND routines below ---  
+       function addCharIntoEditor (incommingChar) { 
+                extractDATA (incommingChar) ;
+                console.log('client-ID ' + sClientID + ' received command >>> propg_char ' + sRealData );
+                if (!checkClientID  ()) {
+                   sCurrentLXContent = $('#LXcontent').val() + sRealData ;
+                   $("#LXcontent").val(sCurrentLXContent);         //  append("data");
+                } // if
+       } //
+       
+       function addLineIntoEditor (incommingLine) {
+                extractDATA (incommingLine) ;
+                console.log('client-ID ' + sClientID + ' received command >>> propg_line ' + sRealData );
+                if (!checkClientID  ()) {
+                   sCurrentLXContent = $('#LXcontent').val() + sRealData + '\n';
+                   $("#LXcontent").val(sCurrentLXContent);         //  append("data");
+                } // if
+       } //
+
+       // --- OBSOLETE !!! sending commands routines below (to the Node.js server) ---
+       function singleCommandSend( cmdIndex, content1 ) {
+                var sToServer = "" ;
+                if ( (cmdIndex >= 0) && (cmdIndex < cmdListCS.length) ) {
+                   sToServer += "(" + strClientID + iRandomClientID      + ")&" ;
+                   sToServer += "(" + strCommand  + cmdListCS [cmdIndex] + ")&" ;
+                   sToServer += "(" + strData     + content1             + ")" ;
+                   socket.emit( cmdListCS [cmdIndex] , sToServer + ' mjak ' + cmdIndex );
+                   if (bDEBUG) { console.log("command sent:" + cmdListCS [cmdIndex] + "  content: " + sToServer + "\n" ) ; }
+                } // if
+       } //
+       // --- OBSOLETE !!! SOCKET communication below [END]---
+       function evaluateIncommingData( eventData001 ) {
+         // --- command pattern must be (WEBCLIENT:iRandomClientID)&(cmd:XXXX)&(DATA:YYYY<>YYYY<>YYYY<>) ---
+         // --- valid example: (WEBCLIENT:1234567890)&(CMD:propg_char)&(DATA:W&14) ---
+
+         var eventData = "" ;
+         eventData = eventData001.toString () ;
+         
+         if (bDEBUG) { 
+            console.log("received Content= " + eventData + "\n" ) ;
+            console.log("received symbols (length)= " + eventData.length + "\n" ) ;
+         } //
+         s1stPART = "" ; s2ndPART = "" ; s3rdPART = "" ;
+         return ;
+
+         // --- detach the 3 parts of info separated with '&' ---
+         var posAMP = eventData.search("&");
+         if (!(posAMP < 0)) {
+            s1stPART = eventData.substring(0, posAMP); 
+            eventData = eventData.replace(s1stPART+"&","");
+            bFound1 = true ;
+            if (bDEBUG) { console.log("s1stPART =" + s1stPART + "  restString= " + eventData + "\n" ) ; }
+         } //
+         posAMP = eventData.search("&");
+         if (!(posAMP < 0)) {
+            s2ndPART = eventData.substring(0, posAMP); 
+            eventData = eventData.replace(s2ndPART+"&","");
+            bFound2 = true ;
+            if (bDEBUG) { console.log("s2ndPART =" + s2ndPART + "  restString= " + eventData + "\n" ) ; }
+         } //
+         posAMP = eventData.length ;
+         if (!(posAMP < 0)) {
+            s3rdPART = eventData.substring(0, posAMP); 
+            eventData = eventData.replace(s3rdPART,"");
+            bFound3 = true ;
+            if (bDEBUG) { console.log("s3rdPART =" + s3rdPART + "  restString= " + eventData + "\n" ) ; }
+         } //
+         // -- DEBUG001 --
+         if (bDEBUG) {
+            console.log("s1stPART =" + s1stPART + "\n" ) ;
+            console.log("s2ndPART =" + s2ndPART + "\n" ) ;
+            console.log("s3rdPART =" + s3rdPART + "\n" ) ;
+         } // if
+         if (!(bFound1 && bFound2 && bFound3)) {
+            sERRmsg  = "incoming data parsing error!" ;
+            bError   = true ;
+            bErrCode = 111 ;   // this allows to localize the exact place of the error
+            return ; 
+         } //
+         n1 = s1stPART.search (strClientID) ;    // strClientID = "WEBCLIENT:" ;  const
+         n2 = s2ndPART.search (strCommand) ;     // strCommand  = "CMD:" ;        const
+         n3 = s3rdPART.search (strData) ;        // strData     = "DATA:" ;       const
+         
+         if (n1 > -1) {
+            s1stPART = s1stPART.replace("(" + strClientID, "");
+            n1 = s1stPART.lastIndexOf (")") ;   
+            s1stPART = s1stPART.substring(0, n1); 
+            if (bDEBUG) { console.log("second-RUN s1stPART =" + s1stPART + "  n1= " + n1 +  "\n" ) ; }
+         } //
+         if (n2 > -1) {
+            s2ndPART = s2ndPART.replace("(" + strCommand, "");
+            n2 = s2ndPART.lastIndexOf (")") ;
+            s2ndPART = s2ndPART.substring(0, n2); 
+            if (bDEBUG) { console.log("second-RUN s2ndPART =" + s2ndPART + "  n2= " + n2 +  "\n" ) ; }
+         } //
+         if (n3 > -1) {
+            s3rdPART = s3rdPART.replace("(" + strData, "");
+            n3 = s3rdPART.lastIndexOf (")") ;
+            s3rdPART = s3rdPART.substring(0, n3); 
+            if (bDEBUG) { console.log("second-RUN s3rdPART =" + s3rdPART + "  n3= " + n3 + "\n" ) ; }
+         } //
+         sERRmsg = "All OK parsing node.js message!" ;
+         bError  = false ;
+         // --- try to execute socket command ---
+         // --- REMOVED !!! ---
+       } //
+       
+       var sClientID = "" ;
+       var sRealData = "" ;
+       
+       function extractDATA (clientData) {
+                var sToString = clientData.toString () ;
+                var posPLUS = clientData.indexOf (sClientDataSEP); 
+            
+                if (!(posPLUS < 0)) {
+                   sClientID = sToString.substring(0, posPLUS ); 
+                   sRealData = sToString.substring(posPLUS+1, sToString.length );
+                } // if
+       } // function 
+       
+       function checkClientID () {
+         if (bDEBUG) { console.log("myClient-ID =" + iRandomClientID + " incomming-ID =" + sClientID + "\n" ) ; }
+         return (iRandomClientID == sClientID) ;
+       } //
+       
+       function displayAvalableLXdocs (allLTXdocs) {
+                $("#exsLTX").text('loading LaTeX files...<br/>'); 
+                
+                console.log('raw data ' + allLTXdocs + '\n' );
+                extractDATA (allLTXdocs) ;
+                console.log('client-ID ' + sClientID + ' received command >>> avail_docs ' + sRealData + '\n' );
+
+                // --- check if no-data found ---
+                var bFound1 = allLTXdocs.search (sLTXnoData) ;
+                var bFound2 = allLTXdocs.search (sLTXnoData+sFileNamesSEP) ;
+                if ( (bFound1 >= 0) || (bFound2 >= 0) )  {
+                   $("#exsLTX").append('<br/> No LaTeX files found on the server !<br/>');   
+                   return ; 
+                } // if
+                $("#exsLTX").append('processing LaTeX files list...<br/>');   
+                var sFilesContent = "" ; var sTMP = "" ; var iCount = 0;
+                var sUser = "" ;         var sLTX = "" ;     
+                bFound1 = sRealData.indexOf (sUserSEPfile) ;
+                bFound2 = sRealData.indexOf (sFileNamesSEP) ;
+                while ( (bFound1 >= 0) && (bFound2 >= 0) && (iCount < 10) ) {
+                      console.log('bFound1: ' + bFound1 + ' bFound2: ' + bFound2 + '\n' ) ;
+                      console.log('step: ' + iCount + ' sFilesContent: ' + sFilesContent + ' sRealData: ' + sRealData + '\n' ) ;
+                      
+                      sUser = sRealData.substring(0, bFound1 ); 
+                      sLTX  = sRealData.substring(bFound1+1, bFound2 ); 
+                      sFilesContent += "<button type=\"button\" class=\"btn btn-link\" " ;
+                      sFilesContent += " onclick=\"loadLTXdocFromServer (\"" + sLTX + "\") >" ;
+                      sFilesContent += " LaTeX doc:" + sLTX + "  from user:" + sUser + "</button> <br/>" ;
+                      
+                    //sFilesContent += 'user: ' + sRealData.substring(0, bFound1 ); 
+                    //sFilesContent += 'doc: '  + sRealData.substring(bFound1+1, bFound2 ); 
+                      sTMP = sRealData.substring(0, bFound2+1 ); 
+                      sRealData = sRealData.replace(sTMP, "");
+                      bFound1 = sRealData.indexOf (sUserSEPfile) ;
+                      bFound2 = sRealData.indexOf (sFileNamesSEP) ;
+                      iCount++ ;
+                } ;
+                $("#exsLTX").append(sFilesContent);  
+       //    var sUserSEPfile   = '@' ;           // const
+       //    var sFileNamesSEP  = '#' ;           // const
+       //    var sClientDataSEP = '+' ;           // const
+       } //
+       function permitORdenyLXdocEdit (requreFileEdit) {
+                console.log('raw data ' + requreFileEdit + '\n' );
+                extractDATA (requreFileEdit) ;
+                console.log('client-ID ' + sClientID + ' received command >>> alert_doc_edit ' + sRealData + '\n' );
+                var sTxt = "User: " + sClientID + " wants to edit the file: " + sRealData + "!\n\n" ;
+                sTxt    += "Do you want to grant him/her a permission ?\n\n" ;
+                var bAnswer = confirm (sTxt);
+                if (bAnswer == true) {
+                   sTxt = iRandomClientID + sClientDataSEP +  "the client may edit the file"; 
+                   if (bSENDch ) { socket.emit( cmdListCS [7] , sTxt ); }  //  allow to edit (edit_allowed)
+                } else {
+                   sTxt = iRandomClientID + sClientDataSEP +  "deny file editing to this client";  
+                   if (bSENDch ) { socket.emit( cmdListCS [8] , sTxt ); }  // deny editing (edit_denied)
+                } // else
+       } 
+       function offerLastLXedited     () {}
+
+       function test1 () {
+                // --- adding a fictive clientID and reading the input-data ---
+                var sValue1 = '99999' + sClientDataSEP + ($('#inp_test1').val()) ;
+                addCharIntoEditor (sValue1) ;
+       } //
+       function test2 () {
+                // --- adding a fictive clientID and reading the input-data ---
+                var sValue2 = '99999' + sClientDataSEP + ($('#inp_test2').val()) ;
+                addLineIntoEditor (sValue2) ;
+       } // 
+       
+       function test3 () {
+                // --- adding a fictive clientID and reading the input-data ---
+                var sValue3 = '99999' + sClientDataSEP + ($('#inp_test3').val()) ;
+                displayAvalableLXdocs (sValue3) ;
+       } //
+       
+       function test4 () {
+                // --- adding a fictive clientID and reading the input-data ---
+                var sValue4 = '99999' + sClientDataSEP + ($('#inp_test4').val()) ;
+                permitORdenyLXdocEdit (sValue4) ;
+       //var cmdListSS  = [ 'propg_char', 'propg_line', 'avail_docs', 'alert_doc_edit', 'lastLXedited', 'no_news',
+       //                   'deliver_doc', 'doc_saved', 'doc_converted'  ] ; 
+       }
+       
+       function test5 () { /* NOT implemented ! */} 
+       function test6 () { /* NOT implemented ! */} 
+       function test7 () { /* NOT implemented ! */} 
+       function test8 () { /* NOT implemented ! */} 
+       function test9 () { /* NOT implemented ! */} 
+     </script>
+     
+</head> 
+<body>
+      
+  <!--HEADER WEB-UI [START] -->
+  <div class="container">
+    <!-- WEB-UI HEADER [START] -->
+    <div class="page-header">
+      <img class="img-responsive" src="hochschule_fulda_logo.jpg" alt="hs-fulda-logo"> 
+<!--  <img id="myLogoImage" class="img-responsive" src="#" alt="hs-fulda-logo" />  -->
+      <h2>Mobile Web Applications - 2015/2016</h2>
+      <h2>LaTeX Editor by Chistov at HS-Fulda</h2>
+    </div>
+    <!-- HEADER WEB-UI [END] -->
+          
+    <div class="btn-group-vertical btn-group-lg btn-block">
+      <!-- WEB-UI LaTeX Editing Area [START] -->
+      <button type="button" class="btn btn-primary " data-toggle="collapse" data-target="#newLTX" onclick="buttonNEWpressed();">NEW LaTeX Document</button>
+      <div id="newLTX" class="collapse">
+        <!-- command buttons area -->
+        <button class="btn btn-info" type="button" data-toggle="tooltip" title="starts new LaTeX document"               onclick="newLTXdoc ()" > new-doc </button>
+        <button class="btn btn-info" type="button" data-toggle="tooltip" title="stores the LaTeX document on the server" onclick="saveLTXdoc ()" > save   </button>
+        <button class="btn btn-info" type="button" data-toggle="tooltip" title="loads last edited LaTeX document"        onclick="loadLastLTXdoc ()" > load-last-doc </button>
+        <button class="btn btn-info" type="button" data-toggle="tooltip" title="converts LaTeX document to PDF"          onclick="convertLTX_toPDFdoc ()" > convert to PDF </button>
+        <button class="btn btn-info" type="button" data-toggle="tooltip" title="tries to login on LaTeX server"          onclick="loginToLTXserver ()" > login         </button>
+        <p id="mySTATUS"> </p>
+
+        <form role="form">
+          <div class="form-group">
+            <label for="LXcontent">LateX Content:</label>
+            <textarea class="form-control" rows="5" id="LXcontent"></textarea>
+          </div>
+        </form>
+        <script>  
+          function buttonNEWpressed () { iButton=1; }
+          function newLTXdoc () { $('#LXcontent').val('').empty (); }
+          function saveLTXdoc () {
+                   var sSTR2 = "" ;
+                   sSTR2 += iRandomClientID + '+' +  sLTXdocBegin  ;
+                   sSTR2 += $('#LXcontent').val() ;    
+                   sSTR2 += sLTXdocEnd ;
+                   if (bSENDch ) { socket.emit( cmdListCS [3] , sSTR2 ); }  // 
+          } // 
+          
+          function loadLastLTXdoc () { 
+                   var sSTR3 = iRandomClientID + '+' +  sLASTedited  ;
+                   if (bSENDch ) { socket.emit( cmdListCS [10] , sSTR3 ); }  // requres a LaTeX file    333333
+          } //
+          
+          function convertLTX_toPDFdoc () {
+                   var sSTR4 = iRandomClientID + '+' +  sCURRENTedited  ;
+                   if (bSENDch ) { socket.emit( cmdListCS [4] , sSTR3 ); }  // 
+          } //
+          
+          function loginToLTXserver () {  }
+          
+          function insertSpecialChar (charIndex) { 
+                   if ( (charIndex <0) || (charIndex>LXchars.length-1) )
+                      return ;
+                   sCurrentLXContent = $('#LXcontent').val() + '\\' + LXchars [charIndex] ;
+                   $("#LXcontent").val(sCurrentLXContent);         //  append("DEBELAN.");
+                   
+                   var sSTR2 = iRandomClientID + '+' + '\\' + LXchars [charIndex] ;  
+                   if (bSENDch )    { socket.emit( cmdListCS [1] , sSTR2 ); }  // send  a char
+          };
+          // --- reading the keyboard ---
+          document.addEventListener('keydown', function(event) {
+                   var sSTR0 = String.fromCharCode (event.keyCode) ;
+                   var sSTR1 = 'Char ' + sSTR0  + ' (key code:) ' + (event.keyCode) ;
+                   var sSTR2 = iRandomClientID + '+' + sSTR0 ; 
+                   document.getElementById("mySTATUS").innerHTML = sSTR1 ;
+                   if (bSENDch )    { socket.emit( cmdListCS [1] , sSTR2 ); }  // send  a char
+                   console.log('sSTR0: ' + sSTR0 + ' sSTR1: ' + sSTR1 + ' sSTR2: ' + sSTR2 + '\n' ) ;
+           });
+        </script>
+        <div class="well"> 
+          <button class="btn btn-default" type="button" data-toggle="tooltip" title="Alpha"  onclick="insertSpecialChar (0)" > <img src="symbols1/gr-alpha-klein24x24.png" width="24" alt="alpha"/>   </button>
+          <button class="btn btn-default" type="button" data-toggle="tooltip" title="Beta"   onclick="insertSpecialChar (1)" > <img src="symbols1/gr-beta-klein24x24.png"  width="24" alt="beta"/>    </button>
+          <button class="btn btn-default" type="button" data-toggle="tooltip" title="Gamma"  onclick="insertSpecialChar (2)" > <img src="symbols1/gr-gamma-klein24x24.png" width="24" alt="gamma"/>   </button>
+          <button class="btn btn-default" type="button" data-toggle="tooltip" title="Pi"     onclick="insertSpecialChar (3)" > <img src="symbols1/gr-pi-klein24x24.png"    width="24" alt="pi"/>      </button>
+          <button class="btn btn-default" type="button" data-toggle="tooltip" title="Phi"    onclick="insertSpecialChar (4)" > <img src="symbols1/gr-phi-klein24x24.png"   width="24" alt="phi"/>     </button>
+          <button class="btn btn-default" type="button" data-toggle="tooltip" title="Varphi" onclick="insertSpecialChar (5)" > <img src="symbols1/gr-varphi-klein24x24.png" width="24" alt="varphi"/> </button>
+          
+          <button class="btn btn-default" type="button" data-toggle="tooltip" title="Algebraische" onclick="insertSpecialChar (6)" > <img src="symbols1/zahlen-algebraische.png" width="24" alt="alge"/> </button>
+          <button class="btn btn-default" type="button" data-toggle="tooltip" title="Ganze"        onclick="insertSpecialChar (7)" > <img src="symbols1/zahlen-ganze.png"        width="24" alt="ganz"/> </button>
+          <button class="btn btn-default" type="button" data-toggle="tooltip" title="Irrationale"  onclick="insertSpecialChar (8)" > <img src="symbols1/zahlen-irrationale.png"  width="24" alt="irra"/> </button>
+          <button class="btn btn-default" type="button" data-toggle="tooltip" title="Komplexe"     onclick="insertSpecialChar (9)" > <img src="symbols1/zahlen-komplexe.png"     width="24" alt="kmpl"/> </button>
+          <button class="btn btn-default" type="button" data-toggle="tooltip" title="Naturliche"   onclick="insertSpecialChar (10)"> <img src="symbols1/zahlen-naturliche.png"   width="24" alt="natl"/> </button>
+          <button class="btn btn-default" type="button" data-toggle="tooltip" title="Quaternionen" onclick="insertSpecialChar (11)"> <img src="symbols1/zahlen-quaternionen.png" width="24" alt="qtr"/> </button>
+          <button class="btn btn-default" type="button" data-toggle="tooltip" title="Rationale"    onclick="insertSpecialChar (12)"> <img src="symbols1/zahlen-rationale.png"    width="24" alt="ratl"/> </button>
+          <button class="btn btn-default" type="button" data-toggle="tooltip" title="Reelle"       onclick="insertSpecialChar (13)"> <img src="symbols1/zahlen-reelle.png"       width="24" alt="reel"/> </button>
+          
+          <button class="btn btn-default" type="button" data-toggle="tooltip" title="Summe"        onclick="insertSpecialChar (14)"> <img src="symbols1/sum-png24x24.png"        width="24" alt="sum"/> </button>
+          <button class="btn btn-default" type="button" data-toggle="tooltip" title="Product"      onclick="insertSpecialChar (15)"> <img src="symbols1/product-png24x24.png"    width="24" alt="prod"/> </button>
+          <button class="btn btn-default" type="button" data-toggle="tooltip" title="Coproduct"    onclick="insertSpecialChar (16)"> <img src="symbols1/coproduct-png24x24.png"  width="24" alt="copr"/> </button>
+          <button class="btn btn-default" type="button" data-toggle="tooltip" title="Vereinigung"  onclick="insertSpecialChar (17)"> <img src="symbols1/union24x24.png"          width="24" alt="unio"/> </button>
+          <button class="btn btn-default" type="button" data-toggle="tooltip" title="Durchschnitt" onclick="insertSpecialChar (18)"> <img src="symbols1/intersection24x24.png"   width="24" alt="intr"/> </button>
+          <button class="btn btn-default" type="button" data-toggle="tooltip" title="Wurzel"       onclick="insertSpecialChar (19)"> <img src="symbols1/square24x24.png"         width="24" alt="sqre"/> </button>
+          
+          <button class="btn btn-default" type="button" data-toggle="tooltip" title="Integral zwischen a und b" onclick="insertSpecialChar (20)"> <img src="symbols1/1integral24x35.png"        width="24" alt="intg"/> </button>
+          <button class="btn btn-default" type="button" data-toggle="tooltip" title="Integral über Kurve"       onclick="insertSpecialChar (21)"> <img src="symbols1/1integral-krag4e24x35.png" width="24" alt="int1"/> </button>
+          <button class="btn btn-default" type="button" data-toggle="tooltip" title="Integral über Fläche"      onclick="insertSpecialChar (22)"> <img src="symbols1/2integral24x35.png"        width="24" alt="2int"/> </button>
+          <button class="btn btn-default" type="button" data-toggle="tooltip" title="Integral über das Volumen" onclick="insertSpecialChar (23)"> <img src="symbols1/3integral24x35.png"        width="24" alt="3int"/> </button>
+          <button class="btn btn-default" type="button" data-toggle="tooltip" title="Aussage UND"               onclick="insertSpecialChar (24)"> <img src="symbols1/4ovka-nagore24x24.png"     width="24" alt="and"/>  </button>
+          <button class="btn btn-default" type="button" data-toggle="tooltip" title="Aussage ODER"              onclick="insertSpecialChar (25)"> <img src="symbols1/4ovka-nadolu24x24.png"     width="24" alt="or"/>   </button>          
+       </div> <!-- end-well -->
+      </div>
+      <!-- WEB-UI LaTeX Editing Area [END] -->
+            
+      <!-- WEB-UI LaTeX Cheap Spacer [START] -->
+      <button type="button" class="btn btn-default disabled">         -        </button>
+      <!-- WEB-UI LaTeX Cheap Spacer [END] -->
+            
+      <!-- WEB-UI LaTeX Existing Files List [START] -->
+      <button type="button" class="btn btn-success " data-toggle="collapse" data-target="#exsLTX" onclick="buttonEXSpressed();">Open LaTeX Document</button>
+               
+      <div id="exsLTX" class="collapse">
+        <p id="exsLTX1"> </p> 
+        <button type="button" class="btn btn-link" onclick="loadLTXdocFromServer (\"Beispiel-LaTeX-File001\")">Beispiel-LaTeX-File001</button> <br/>
+        <button type="button" class="btn btn-link" onclick="loadLTXdocFromServer (\"Beispiel-LaTeX-File002\")">Beispiel-LaTeX-File002</button> <br/> 
+        <button type="button" class="btn btn-link" onclick="loadLTXdocFromServer (\"Beispiel-LaTeX-File003\")">Beispiel-LaTeX-File003</button> <br/>
+        <button type="button" class="btn btn-link" onclick="loadLTXdocFromServer (\"Beispiel-LaTeX-File004\")">Beispiel-LaTeX-File001</button> <br/>
+        <button type="button" class="btn btn-link" onclick="loadLTXdocFromServer (\"Beispiel-LaTeX-File005\")">Beispiel-LaTeX-File002</button> <br/>
+        <button type="button" class="btn btn-link" onclick="loadLTXdocFromServer (\"Beispiel-LaTeX-File006\")">Beispiel-LaTeX-File003</button> <br/>
+      </div>
+      <!-- WEB-UI LaTeX Existing Files List [END] -->
+    </div>
+    <script>
+      function buttonEXSpressed () { iButton=2; } //
+            
+      function loadLTXdocFromServer( LTXfilename) { 
+               var sSTR = iRandomClientID + '+' + LTXfilename ; 
+               if (bSENDch )    { socket.emit( cmdListCS [10] , sSTR ); }  // requres a LaTeX file   
+      } // 
+      
+      function buttonTOOLbox () { iButton=3; } //
+    </script>
+    
+    <button type="button" class="btn btn-warning " data-toggle="collapse" data-target="#testBOX" onclick="buttonTOOLbox ()">Test Box</button>
+    <!-- WEB-UI Tool-Box [START] -->
+    <div id="testBOX" class="well collapse"> 
+      <p>Testing of Internal Routines of incomming commands </p>
+      <button type="button" class="btn btn-warning btn-xs" onclick="test1()">propg_char</button>      
+      <input  id="inp_test1" type="text" value="a"> <br/>
+      
+      <button type="button" class="btn btn-warning btn-xs" onclick="test2()">propg_line</button>   
+      <input  id="inp_test2" type="text" value="abcdefghijklmopqrstuvwxyz -this is test line"> <br/>
+      
+      <button type="button" class="btn btn-warning btn-xs" onclick="test3()">avail_docs</button>   
+      <input  id="inp_test3" type="text" value="user1@sampleLTX-file001#user2@sampleLTX-file002#"> <br/>
+      
+      <button type="button" class="btn btn-warning btn-xs" onclick="test4()">alert_doc_edit</button> 
+      <input  id="inp_test4" type="text" value="userX@askedLTX-docToEdit#"> <br/>
+      
+      <button type="button" class="btn btn-warning btn-xs" onclick="test5()">lastLXedited</button>
+      <button type="button" class="btn btn-warning btn-xs" onclick="test6()">no_news</button>
+      <button type="button" class="btn btn-warning btn-xs" onclick="test7()">deliver_doc</button>
+      <button type="button" class="btn btn-warning btn-xs" onclick="test8()">doc_saved</button>
+      <button type="button" class="btn btn-warning btn-xs" onclick="test9()">doc_converted</button>
+    </div>
+    <!-- WEB-UI Tool-Box [END] -->
+    
+    <footer class="container-fluid bg-4 text-center">
+      <p>Student Project WS2015/2016 <a href="http://www.hs-fulda.de">www.hs-fulda.de</a></p>
+    </footer>
+  </div>
+  <!-- USER WEB-UI [END] -->
+        
+  <script>
+    // --- catching some WEB-UI events ---
+    $(document).ready( function () { 
+    //$(".btn-primary").click(function(){ $(".collapse").collapse('toggle'); });    
+    //$(".btn-success").click(function(){ $(".collapse").collapse('toggle'); });
+      
+      $(".collapse").on('shown.bs.collapse',  function(){ proceedAtShowContent (); } );
+      $(".collapse").on('hidden.bs.collapse', function(){ proceedAtHideContent (); } );
+    });
+    function proceedAtShowContent  () { 
+             console.log("enter func = proceedAtShowContent " + "\n" ) ; 
+             if (iButton==2) {
+                 console.log("enter IF of func = proceedAtShowContent " + "\n" ) ; 
+                 var sSTR = iRandomClientID + '+' + 'get files from the folder' ; 
+                 if (bSENDch )    { socket.emit( cmdListCS [5] , sSTR ); }  // get existing LaTeX docs on the server 
+             } // if
+    } //
+    function proceedAtHideContent  () { 
+             if (iButton==2) {
+                 console.log("enter func = proceedAtHideContent >>> clear content" + "\n" ) ; 
+                 $('#exsLTX').text("LaTeX files here...");
+             } // if
+    } //
+  </script>  
+  
+</body> 
+</html> 
+<!-- 22-04-2016 -->
+>>>>>>> origin/master
